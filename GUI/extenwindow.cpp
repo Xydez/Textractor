@@ -2,6 +2,7 @@
 #include "ui_extenwindow.h"
 #include <QMenu>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QMimeData>
@@ -64,7 +65,7 @@ namespace
 	{
 		std::scoped_lock lock(extenMutex);
 		std::vector<Extension> extensions;
-		for (auto extenName : extenNames)
+		for (auto& extenName : extenNames)
 			extensions.push_back(*std::find_if(::extensions.begin(), ::extensions.end(), [&](Extension extension) { return extension.name == S(extenName); }));
 		::extensions = extensions;
 	}
@@ -74,7 +75,7 @@ namespace
 		ui.extenList->clear();
 		QTextFile extenSaveFile(EXTEN_SAVE_FILE, QIODevice::WriteOnly | QIODevice::Truncate);
 		concurrency::reader_writer_lock::scoped_lock_read readLock(extenMutex);
-		for (auto extension : extensions)
+		for (auto& extension : extensions)
 		{
 			ui.extenList->addItem(S(extension.name));
 			extenSaveFile.write((S(extension.name) + ">").toUtf8());
@@ -107,9 +108,17 @@ namespace
 	void ContextMenu(QPoint point)
 	{
 		QAction addExtension(ADD_EXTENSION), removeExtension(REMOVE_EXTENSION);
-		if (auto action = QMenu::exec({ &addExtension, &removeExtension }, ui.extenList->mapToGlobal(point), nullptr, This))
-			if (action == &removeExtension) Delete();
-			else if (QString extenFile = QFileDialog::getOpenFileName(This, ADD_EXTENSION, ".", EXTENSIONS + QString(" (*.xdll);;Libraries (*.dll)")); !extenFile.isEmpty()) Add(extenFile);
+		if (auto action = QMenu::exec({ &addExtension, &removeExtension }, ui.extenList->mapToGlobal(point), nullptr, This)) {
+			if (action == &removeExtension) {
+				Delete();
+			}
+			else if (
+				QString extenFile = QFileDialog::getOpenFileName(This, ADD_EXTENSION, ".", EXTENSIONS + QString(" (*.xdll);;Libraries (*.dll)"));
+				!extenFile.isEmpty()
+			) {
+				Add(extenFile);
+			}
+		}
 	}
 }
 
@@ -128,11 +137,11 @@ bool DispatchSentenceToExtensions(std::wstring& sentence, const InfoForExtension
 void CleanupExtensions()
 {
 	std::scoped_lock lock(extenMutex);
-	for (auto extension : extensions) FreeLibrary(GetModuleHandleW((extension.name + L".xdll").c_str()));
+	for (auto& extension : extensions) FreeLibrary(GetModuleHandleW((extension.name + L".xdll").c_str()));
 	extensions.clear();
 }
 
-ExtenWindow::ExtenWindow(QWidget* parent) : QMainWindow(parent, Qt::WindowCloseButtonHint)
+ExtenWindow::ExtenWindow(QWidget* parent, std::optional<std::vector<QFileInfo>> overrideExtensions) : QMainWindow(parent, Qt::WindowCloseButtonHint)
 {
 	This = this;
 	ui.setupUi(this);
@@ -142,9 +151,22 @@ ExtenWindow::ExtenWindow(QWidget* parent) : QMainWindow(parent, Qt::WindowCloseB
 	connect(ui.extenList, &QListWidget::customContextMenuRequested, ContextMenu);
 	ui.extenList->installEventFilter(this);
 
-	if (!QFile::exists(EXTEN_SAVE_FILE)) QTextFile(EXTEN_SAVE_FILE, QIODevice::WriteOnly).write(DEFAULT_EXTENSIONS);
-	for (auto extenName : QString(QTextFile(EXTEN_SAVE_FILE, QIODevice::ReadOnly).readAll()).split(">")) Load(extenName);
-	Sync();
+	if (overrideExtensions.has_value()) {
+		for (auto& extenPath : overrideExtensions.value()) {
+			Add(extenPath);
+		}
+	}
+	else {
+		if (!QFile::exists(EXTEN_SAVE_FILE)) {
+			QTextFile(EXTEN_SAVE_FILE, QIODevice::WriteOnly).write(DEFAULT_EXTENSIONS);
+		}
+
+		for (auto& extenName : QString(QTextFile(EXTEN_SAVE_FILE, QIODevice::ReadOnly).readAll()).split(">")) {
+			Load(extenName);
+		}
+
+		Sync();
+	}
 }
 
 bool ExtenWindow::eventFilter(QObject* target, QEvent* event)
@@ -172,5 +194,5 @@ void ExtenWindow::dragEnterEvent(QDragEnterEvent* event)
 
 void ExtenWindow::dropEvent(QDropEvent* event)
 {
-	for (auto file : event->mimeData()->urls()) Add(file.toLocalFile());
+	for (auto& file : event->mimeData()->urls()) Add(file.toLocalFile());
 }

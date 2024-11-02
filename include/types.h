@@ -115,3 +115,10 @@ struct HookRemovedNotif // From dll
 	HostNotificationType command = HOST_NOTIFICATION_RMVHOOK;
 	uint64_t address;
 };
+
+class QFileInfo;
+
+struct SettingsPack {
+	std::vector<DWORD> attachProcessIds;
+	std::vector<QFileInfo> extensionPaths;
+};

@@ -142,14 +142,14 @@ namespace
 	{
 		std::unordered_set<std::wstring> attachTargets;
 		if (autoAttach)
-			for (auto process : QString(QTextFile(GAME_SAVE_FILE, QIODevice::ReadOnly).readAll()).split("\n", QString::SkipEmptyParts))
+			for (auto& process : QString(QTextFile(GAME_SAVE_FILE, QIODevice::ReadOnly).readAll()).split("\n", QString::SkipEmptyParts))
 				attachTargets.insert(S(process));
 		if (autoAttachSavedOnly)
-			for (auto process : QString(QTextFile(HOOK_SAVE_FILE, QIODevice::ReadOnly).readAll()).split("\n", QString::SkipEmptyParts))
+			for (auto& process : QString(QTextFile(HOOK_SAVE_FILE, QIODevice::ReadOnly).readAll()).split("\n", QString::SkipEmptyParts))
 				attachTargets.insert(S(process.split(" , ")[0]));
 
 		if (!attachTargets.empty())
-			for (auto [processId, processName] : GetAllProcesses())
+			for (auto& [processId, processName] : GetAllProcesses())
 				if (processName && attachTargets.count(processName.value()) > 0 && alreadyAttached.count(processId) == 0) Host::InjectProcess(processId);
 	}
 
@@ -176,7 +176,7 @@ namespace
 	{
 		QMultiHash<QString, DWORD> processesMap;
 		std::vector<std::pair<QString, HICON>> processIcons;
-		for (auto [processId, processName] : GetAllProcesses())
+		for (auto& [processId, processName] : GetAllProcesses())
 		{
 			if (processName && (showSystemProcesses || processName->find(L":\\Windows\\") == std::string::npos))
 			{
@@ -300,7 +300,8 @@ namespace
 		hookList->setAttribute(Qt::WA_DeleteOnClose);
 		hookList->setMinimumSize({ 300, 50 });
 		hookList->setWindowTitle(DOUBLE_CLICK_TO_REMOVE_HOOK);
-		for (auto [address, hp] : hooks) new QListWidgetItem(QString(hp.name) + "@" + QString::number(address, 16), hookList);
+		for (auto& [address, hp] : hooks)
+			new QListWidgetItem(QString(hp.name) + "@" + QString::number(address, 16), hookList);
 		QObject::connect(hookList, &QListWidget::itemDoubleClicked, [processId, hookList](QListWidgetItem* item)
 		{
 			try
@@ -327,7 +328,7 @@ namespace
 				if (!(hp.type & HOOK_ENGINE)) hookCodes[tp.addr] = S(HookCode::Generate(hp, tp.processId));
 			}
 		}
-		auto hookInfo = QStringList() << S(processName.value()) << hookCodes.values();
+		auto& hookInfo = QStringList() << S(processName.value()) << hookCodes.values();
 		ThreadParam tp = current->tp;
 		if (tp.processId == selectedProcessId) hookInfo << QString("|%1:%2:%3").arg(tp.ctx).arg(tp.ctx2).arg(S(HookCode::Generate(current->hp, tp.processId)));
 		QTextFile(HOOK_SAVE_FILE, QIODevice::WriteOnly | QIODevice::Append).write((hookInfo.join(" , ") + "\n").toUtf8());
@@ -392,7 +393,7 @@ namespace
 			QLineEdit patternEdit(x64 ? "CC CC 48 89" : "55 8B EC", &dialog);
 			assert(QByteArray::fromHex(patternEdit.text().toUtf8()) == QByteArray((const char*)sp.pattern, sp.length));
 			layout.addRow(SEARCH_PATTERN, &patternEdit);
-			for (auto [value, label] : Array<int&, const char*>{
+			for (auto& [value, label] : Array<int&, const char*>{
 				{ sp.searchTime, SEARCH_DURATION },
 				{ sp.offset, PATTERN_OFFSET },
 				{ sp.maxRecords, MAX_HOOK_SEARCH_RECORDS },
@@ -407,7 +408,7 @@ namespace
 			}
 			QLineEdit boundEdit(QFileInfo(S(GetModuleFilename(selectedProcessId).value_or(L""))).fileName(), &dialog);
 			layout.addRow(SEARCH_MODULE, &boundEdit);
-			for (auto [value, label] : Array<uintptr_t&, const char*>{
+			for (auto& [value, label] : Array<uintptr_t&, const char*>{
 				{ sp.minAddress, MIN_ADDRESS },
 				{ sp.maxAddress, MAX_ADDRESS },
 				{ sp.padding, STRING_OFFSET },
@@ -490,7 +491,7 @@ namespace
 		Settings settings(&dialog);
 		QFormLayout layout(&dialog);
 		QPushButton saveButton(SAVE_SETTINGS, &dialog);
-		for (auto [value, label] : Array<bool&, const char*>{
+		for (auto& [value, label] : Array<bool&, const char*>{
 			{ TextThread::filterRepetition, FILTER_REPETITION },
 			{ autoAttach, AUTO_ATTACH },
 			{ autoAttachSavedOnly, ATTACH_SAVED_ONLY },
@@ -502,7 +503,7 @@ namespace
 			layout.addRow(label, checkBox);
 			QObject::connect(&saveButton, &QPushButton::clicked, [checkBox, label, &settings, &value] { settings.setValue(label, value = checkBox->isChecked()); });
 		}
-		for (auto [value, label] : Array<int&, const char*>{
+		for (auto& [value, label] : Array<int&, const char*>{
 			{ TextThread::maxBufferSize, MAX_BUFFER_SIZE },
 			{ TextThread::flushDelay, FLUSH_DELAY },
 			{ TextThread::maxHistorySize, MAX_HISTORY_SIZE },
@@ -559,7 +560,7 @@ namespace
 		QStringList allProcesses = QString(QTextFile(HOOK_SAVE_FILE, QIODevice::ReadOnly).readAll()).split("\n", QString::SkipEmptyParts);
 		auto hookList = std::find_if(allProcesses.rbegin(), allProcesses.rend(), [&](QString hookList) { return hookList.contains(process); });
 		if (hookList != allProcesses.rend())
-			for (auto hookInfo : hookList->split(" , "))
+			for (auto& hookInfo : hookList->split(" , "))
 				if (auto hp = HookCode::Parse(S(hookInfo))) Host::InsertHook(processId, hp.value());
 				else swscanf_s(S(hookInfo).c_str(), L"|%I64d:%I64d:%[^\n]", &savedThreadCtx, &savedThreadCtx2, savedThreadCode, (unsigned)std::size(savedThreadCode));
 	}
@@ -629,12 +630,20 @@ namespace
 	}
 }
 
-MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
+MainWindow::MainWindow(SettingsPack settingsPack, QWidget *parent)
+	: QMainWindow(parent), m_settingsPack(settingsPack)
 {
+	std::optional<std::vector<QFileInfo>> overrideExtensions = std::nullopt;
+
+	// Add extensions provided by command line
+	if (!m_settingsPack.extensionPaths.empty()) {
+		overrideExtensions = m_settingsPack.extensionPaths;
+	}
+
 	This = this;
 	ui.setupUi(this);
-	extenWindow = new ExtenWindow(this);
-	for (auto [text, slot] : Array<const char*, void(&)()>{
+	extenWindow = new ExtenWindow(this, overrideExtensions);
+	for (auto& [text, slot] : Array<const char*, void(&)()>{
 		{ ATTACH, AttachProcess },
 		{ LAUNCH, LaunchProcess },
 		{ CONFIG, ConfigureProcess },
@@ -675,8 +684,26 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 	current = &Host::GetThread(Host::console);
 	Host::AddConsoleOutput(ABOUT);
 
-	AttachConsole(ATTACH_PARENT_PROCESS);
-	WriteConsoleW(GetStdHandle(STD_OUTPUT_HANDLE), CL_OPTIONS, wcslen(CL_OPTIONS), DUMMY, NULL);
+	//AttachConsole(ATTACH_PARENT_PROCESS);
+
+	//HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
+	//const wchar_t* nl = L"\n";
+	//WriteConsoleW(hStdout, nl, wcslen(nl), DUMMY, NULL);
+	//WriteConsoleW(hStdout, CL_OPTIONS, wcslen(CL_OPTIONS), DUMMY, NULL);
+	//WriteConsoleW(hStdout, nl, wcslen(nl), DUMMY, NULL);
+
+	/*
+	for (QFileInfo extensionPath : m_settingsPack.extensionPaths) {
+		extenWindow->addExtension(extensionPath);
+	}
+	*/
+
+	// Inject processes provided by command line
+	for (DWORD processId : m_settingsPack.attachProcessIds) {
+		Host::InjectProcess(processId);
+	}
+
+	/*
 	auto processes = GetAllProcesses();
 	int argc;
 	std::unique_ptr<LPWSTR[], Functor<LocalFree>> argv(CommandLineToArgvW(GetCommandLineW(), &argc));
@@ -686,6 +713,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 				if (DWORD processId = wcstoul(arg.substr(2).c_str(), nullptr, 0)) Host::InjectProcess(processId);
 				else for (auto [processId, processName] : processes)
 					if (processName.value_or(L"").find(L"\\" + arg.substr(2)) != std::string::npos) Host::InjectProcess(processId);
+	*/
+
+
 
 	std::thread([] { for (; ; Sleep(10000)) AttachSavedProcesses(); }).detach();
 }

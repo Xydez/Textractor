@@ -14,7 +14,7 @@ void CleanupExtensions(); // must call this before exiting the program, only way
 class ExtenWindow : public QMainWindow
 {
 public:
-	explicit ExtenWindow(QWidget* parent = nullptr);
+	explicit ExtenWindow(QWidget* parent = nullptr, std::optional<std::vector<QFileInfo>> overrideExtensions = std::nullopt);
 
 private:
 	bool eventFilter(QObject* target, QEvent* event) override;
