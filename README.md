@@ -9,37 +9,71 @@ Watch the [tutorial video](docs/TUTORIAL.md) for a quick rundown on using it.
 
 ## Download
 
-Official stable releases of Textractor can be found [here](https://github.com/Artikash/Textractor/releases).<br>
-The last release of ITHVNR can be found [here](https://drive.google.com/open?id=13aHF4uIXWn-3YML_k2YCDWhtGgn5-tnO).<br>
-Experimental builds of Textractor (with debug info) from the latest source can be found [here](https://ci.appveyor.com/project/Artikash/textractor/history) in the 'Artifacts' section of each job.
+Stable releases of Textractor can be found [here](https://github.com/Xydez/Textractor/releases).
 
 ## Features
 
 - Highly extensible and customizable
 - Auto hook many game engines (including some not supported by VNR!)
-- Hook text using /H "hook" codes (most AGTH codes supported)
+- Hook text using "hook" codes (most AGTH codes supported)
 - Automatically search for possible hook codes
+
+### Command line
+Texthooker may be launched together with command line parameters:
+```
+Textractor.exe
+  -h, --help
+      Show the help page
+
+  -p<process_id|process_name>
+      Attach to a process id (-p1234) or a process name (-p"sample.exe")
+
+  -x<extension_path>
+      Launch with an extension enabled (extension_path should usually be an absolute path). Note that this will make Textractor overwrite SavedExtensions.txt.
+
+      Example: -x"C:\Program Files (x86)\Textractor\Copy to Clipboard.xdll"
+```
 
 ## Support
 
-Let me know of any bugs, games that Textractor has trouble hooking, feature requests, or other suggestions by posting an issue.<br>
-If you have trouble hooking a game, please show me a way to freely download it or gift it to me on [Steam](https://steamcommunity.com/profiles/76561198097566313/).
+Please report any bugs, games that Textractor has trouble hooking, feature requests, or other suggestions by posting an issue.
 
 ## Extensions
 
-See my [Example Extension project](https://github.com/Artikash/ExampleExtension) to see how to build an extension.<br>
-See the extensions folder for examples of what extensions can do. 
+See the [Example Extension project](https://github.com/Artikash/ExampleExtension) to see how to build an extension.<br>
+See the extensions folder for examples of what extensions can do.
 
 ## Contributing
 
-All contributions are appreciated! Please email me at akashmozumdar@gmail.com if you have any questions about the codebase.<br>
-You should use the standard process of making a pull request (fork, branch, commit changes, make PR from your branch to my master).<br>
+All contributions are appreciated! You should use the standard process of making a pull request (fork, branch, commit changes, make a PR to master).<br>
 Contributing a translation is easy: [text.cpp](text.cpp) contains all of the text strings that you need to translate. Translations of this README or the tutorial video transcript are also welcome.
 
 ## Compiling
-Before compiling Textractor, you need Qt version 5.13 and Visual Studio with CMake support.
-Clone Textractor's source and initialize submodules with `git clone https://github.com/Artikash/Textractor.git` and `git submodule update --init`.
-You should then be able to just open the source folder in Visual Studio and build.
+### Installing Qt5
+Before compiling Textractor, you need to install Qt5 (tested with version 5.15.2) and Visual Studio with CMake support.
+
+The easiest way to install Qt is using [aqtinstall](https://github.com/miurahr/aqtinstall), which, unlike the official installer, doesn't require an account.
+
+```cmd
+> cd %LocalAppData%
+> mkdir Qt
+> cd Qt
+> pip install aqtinstall
+> aqt install-qt windows desktop 5.15.2 win32_msvc2019
+```
+
+This directory is then linked to by `Qt5_DIR` in `build.bat`; if you would like to install Qt to a different directory, then change this variable.
+
+### Compiling the source code
+To get started, clone Textractor's source code.
+
+```cmd
+> git clone --recurse-submodules https://github.com/Xydez/Textractor.git
+```
+
+Then, run the build script `build.bat` and check that there are no errors.
+
+Finally, open `Textractor.sln` in the `build` directory.
 
 ## Project Architecture
 
@@ -49,4 +83,4 @@ Additional information about hooks is exchanged via shared memory.<br>
 The text that the host receives through the pipe is then processed a little before being dispatched back to the GUI.<br>
 Finally, the GUI dispatches the text to extensions before displaying it.
 
-## [Developers](docs/CREDITS.md)
+## [Credits](docs/CREDITS.md)
